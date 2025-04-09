@@ -1254,9 +1254,10 @@ static GstFlowReturn gst_zedxonesrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
 
     GST_TRACE("PUSH Buffer meta-data");
     guint64 offset = GST_BUFFER_OFFSET(buf);
+    guint64 timestamp_ns = src->_zed->getTimestamp(sl::TIME_REFERENCE::IMAGE);
     GstZedSrcMeta *meta = gst_buffer_add_zed_src_meta(buf, info, pose, sens,
                                                       false,
-                                                      0, NULL, offset);
+                                                      0, NULL, offset, timestamp_ns);
 
     // Buffer release
     GST_TRACE("Buffer release");

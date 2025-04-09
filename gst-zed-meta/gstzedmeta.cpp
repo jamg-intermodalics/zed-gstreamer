@@ -66,6 +66,7 @@ static gboolean gst_zed_src_meta_init(GstMeta *meta, gpointer params, GstBuffer 
     GST_TRACE("gst_zed_src_meta_init");
 
     GstZedSrcMeta *emeta = (GstZedSrcMeta *) meta;
+    emeta->timestamp_ns=0;
 
     emeta->info.cam_model = 0;
     emeta->info.stream_type = 0;
@@ -109,7 +110,7 @@ static gboolean gst_zed_src_meta_transform(GstBuffer *transbuf, GstMeta *meta, G
         GST_DEBUG("Transform copy");
     }
 
-    gst_buffer_add_zed_src_meta(transbuf, emeta->info, emeta->pose, emeta->sens, emeta->od_enabled, emeta->obj_count, emeta->objects, emeta->frame_id);
+    gst_buffer_add_zed_src_meta(transbuf, emeta->info, emeta->pose, emeta->sens, emeta->od_enabled, emeta->obj_count, emeta->objects, emeta->frame_id, emeta->timestamp_ns);
 
     return TRUE;
 }
@@ -135,7 +136,7 @@ const GstMetaInfo *gst_zed_src_meta_get_info(void) {
 }
 
 GstZedSrcMeta *gst_buffer_add_zed_src_meta(GstBuffer *buffer, ZedInfo &info, ZedPose &pose, ZedSensors &sens, gboolean od_enabled, guint8 obj_count,
-                                           ZedObjectData *objects, guint64 frame_id) {
+                                           ZedObjectData *objects, guint64 frame_id, guint64 timestamp) {
     GST_TRACE("gst_buffer_add_zed_src_meta");
 
     GST_DEBUG("Add GstZedSrcMeta");
@@ -145,6 +146,7 @@ GstZedSrcMeta *gst_buffer_add_zed_src_meta(GstBuffer *buffer, ZedInfo &info, Zed
     g_return_val_if_fail(GST_IS_BUFFER(buffer), NULL);
 
     meta = (GstZedSrcMeta *) gst_buffer_add_meta(buffer, GST_ZED_SRC_META_INFO, NULL);
+    meta->timestamp_ns = timestamp;
 
     memcpy(&meta->info, &info, sizeof(ZedInfo));
     memcpy(&meta->pose, &pose, sizeof(ZedPose));

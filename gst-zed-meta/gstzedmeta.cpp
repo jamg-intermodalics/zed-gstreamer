@@ -136,7 +136,7 @@ const GstMetaInfo *gst_zed_src_meta_get_info(void) {
 }
 
 GstZedSrcMeta *gst_buffer_add_zed_src_meta(GstBuffer *buffer, ZedInfo &info, ZedPose &pose, ZedSensors &sens, gboolean od_enabled, guint8 obj_count,
-                                           ZedObjectData *objects, guint64 frame_id, guint64 timestamp) {
+                                           ZedObjectData *objects, guint64 frame_id, guint64 timestamp_ns) {
     GST_TRACE("gst_buffer_add_zed_src_meta");
 
     GST_DEBUG("Add GstZedSrcMeta");
@@ -146,7 +146,7 @@ GstZedSrcMeta *gst_buffer_add_zed_src_meta(GstBuffer *buffer, ZedInfo &info, Zed
     g_return_val_if_fail(GST_IS_BUFFER(buffer), NULL);
 
     meta = (GstZedSrcMeta *) gst_buffer_add_meta(buffer, GST_ZED_SRC_META_INFO, NULL);
-    meta->timestamp_ns = timestamp;
+    meta->timestamp_ns = timestamp_ns;
 
     memcpy(&meta->info, &info, sizeof(ZedInfo));
     memcpy(&meta->pose, &pose, sizeof(ZedPose));

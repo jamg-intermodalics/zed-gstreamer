@@ -570,7 +570,7 @@ const GstMetaInfo *gst_zed_src_meta_get_info(void);
 
 GST_EXPORT
 GstZedSrcMeta *gst_buffer_add_zed_src_meta(GstBuffer *buffer, ZedInfo &info, ZedPose &pose, ZedSensors &sens, gboolean od_enabled, guint8 obj_count,
-                                           ZedObjectData *objects, guint64 frame_id, guint64 timestamp = 0);
+                                           ZedObjectData *objects, guint64 frame_id, guint64 timestamp_ns = 0);
 
 G_END_DECLS
 

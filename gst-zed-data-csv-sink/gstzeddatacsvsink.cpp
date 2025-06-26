@@ -290,7 +290,6 @@ GstFlowReturn gst_zeddatacsvsink_render( GstBaseSink * sink, GstBuffer* buf )
         GstZedSrcMeta* meta = (GstZedSrcMeta*)map_in.data;
         *csvsink->out_file_ptr << meta->timestamp_ns << CSV_SEP;
 
-
         // ----> Info
         *csvsink->out_file_ptr << meta->info.stream_type << CSV_SEP;
         *csvsink->out_file_ptr << meta->info.cam_model << CSV_SEP;

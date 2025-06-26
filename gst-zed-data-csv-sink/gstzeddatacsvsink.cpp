@@ -282,13 +282,13 @@ GstFlowReturn gst_zeddatacsvsink_render( GstBaseSink * sink, GstBuffer* buf )
     {
         // ----> Timestamp
         GstClockTime timestamp = GST_BUFFER_TIMESTAMP (buf);
-        *csvsink->out_file_ptr << timestamp << CSV_SEP;
         // <---  Timestamp
 
         GST_TRACE_OBJECT( csvsink, "Input buffer size %lu B", map_in.size );
         GST_TRACE_OBJECT( csvsink, "GstZedSrcMeta size %lu B", sizeof(GstZedSrcMeta) );
 
         GstZedSrcMeta* meta = (GstZedSrcMeta*)map_in.data;
+        *csvsink->out_file_ptr << meta->timestamp_ns << CSV_SEP;
 
         // ----> Info
         *csvsink->out_file_ptr << meta->info.stream_type << CSV_SEP;

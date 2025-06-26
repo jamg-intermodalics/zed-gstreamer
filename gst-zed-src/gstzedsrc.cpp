@@ -163,7 +163,8 @@ typedef enum {
     GST_ZEDSRC_100FPS = 100,
     GST_ZEDSRC_60FPS = 60,
     GST_ZEDSRC_30FPS = 30,
-    GST_ZEDSRC_15FPS = 15
+    GST_ZEDSRC_15FPS = 15,
+    GST_ZEDSRC_10FPS = 10,
 } GstZedSrcFPS;
 
 typedef enum {
@@ -408,6 +409,7 @@ static GType gst_zedsrc_fps_get_type(void) {
             {GST_ZEDSRC_30FPS, "VGA (USB3), HD720 (USB3) and HD1080 (USB3/GMSL2) resolutions",
              "30  FPS"},
             {GST_ZEDSRC_15FPS, "all resolutions (NO GMSL2)", "15  FPS"},
+            {GST_ZEDSRC_10FPS, "all resolutions", "10  FPS"},
             {0, NULL, NULL},
         };
 
@@ -3231,9 +3233,10 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     // <---- Timestamp meta-data
 
     guint64 offset = GST_BUFFER_OFFSET(buf);
+    guint64 timestamp_ns = src->zed.getTimestamp(sl::TIME_REFERENCE::IMAGE);
     GstZedSrcMeta *meta = gst_buffer_add_zed_src_meta(buf, info, pose, sens,
                                                       src->object_detection | src->body_tracking,
-                                                      obj_count, obj_data, offset);
+                                                      obj_count, obj_data, offset, timestamp_ns);
 
     // Buffer release
     gst_buffer_unmap(buf, &minfo);

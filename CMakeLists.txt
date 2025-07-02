@@ -69,7 +69,7 @@ include_directories(
 )
 
 # values used when registering plugins
-add_definitions(-DGST_PACKAGE_VERSION="4.1")
+add_definitions(-DGST_PACKAGE_VERSION="5.0")
 add_definitions(-DGST_PACKAGE_LICENSE="LGPL")
 add_definitions(-DGST_PACKAGE_ORIGIN="https://github.com/stereolabs/zed-gstreamer")
 add_definitions(-DGST_PACKAGE_NAME="${CMAKE_PROJECT_NAME}")
@@ -151,7 +151,7 @@ if(L4T_FOUND)
             add_subdirectory(gst-zedxone-src)
         endif()
     elseif(${L4T_RELEASE} EQUAL "36")
-        if(${L4T_REVISION} EQUAL "3")
+        if(${L4T_REVISION} GREATER_EQUAL "3")
             add_subdirectory(gst-zedxone-src)
         endif()
     endif()

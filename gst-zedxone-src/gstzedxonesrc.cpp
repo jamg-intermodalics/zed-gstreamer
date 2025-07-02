@@ -792,9 +792,9 @@ static gboolean gst_zedxonesrc_calculate_caps(GstZedXOneSrc *src) {
 }
 
 static gboolean gst_zedxonesrc_start(GstBaseSrc *bsrc) {
-#if (ZED_SDK_MAJOR_VERSION != 4 && ZED_SDK_MINOR_VERSION != 2 && ZED_SDK_SUB_VERSION != 2)
+#if (ZED_SDK_MAJOR_VERSION != 5)
     GST_ELEMENT_ERROR(src, LIBRARY, FAILED, 
-    ("Wrong ZED SDK version. SDK v4.2.2 required "),
+    ("Wrong ZED SDK version. SDK v5.0 EA or newer required "),
                       (NULL));
 #endif
 
@@ -846,8 +846,6 @@ static gboolean gst_zedxonesrc_start(GstBaseSrc *bsrc) {
     GST_INFO(" * Camera FPS: %d", init_params.camera_fps);
     init_params.sdk_verbose = src->_sdkVerboseLevel;
     GST_INFO(" * SDK verbose level: %d", init_params.sdk_verbose);
-    init_params.open_timeout_sec = src->_camTimeout_sec;
-    GST_INFO(" * Open timeout [sec]: %g", init_params.open_timeout_sec);
     init_params.camera_image_flip = (src->_cameraImageFlip?sl::FLIP_MODE::ON:sl::FLIP_MODE::OFF);
     GST_INFO(" * Camera flipped: %s", (init_params.camera_image_flip?"TRUE":"FALSE"));
     init_params.enable_hdr = src->_enableHDR;

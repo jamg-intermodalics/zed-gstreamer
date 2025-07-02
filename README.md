@@ -34,13 +34,13 @@ GStreamer package for ZED Cameras. The package is composed of several elements:
 
 ### Prerequisites
 
-* [ZED SDK v4.1](https://www.stereolabs.com/developers/release/)
+* [ZED SDK v5.0-EA](https://www.stereolabs.com/developers/release/5.0)
 * CMake (v3.6+)
 * GStreamer 1.0
 
 ### Windows installation
 
-* Install the latest ZED SDK v4 from the [official download page](https://www.stereolabs.com/developers/release/) [Optional to compile the `zedsrc` element to acquire data from a ZED camera device]
+* Install the latest ZED SDK v5.0-EA from the [official download page](https://www.stereolabs.com/developers/release/5.0) [Optional to compile the `zedsrc` element to acquire data from a ZED camera device]
 * Install [Git](https://git-scm.com/) or download a ZIP archive
 * Install [CMake](https://cmake.org/)
 * Install a [GStreamer distribution (**both `runtime` and `development` installers**)](https://gstreamer.freedesktop.org/download/).
@@ -61,9 +61,9 @@ GStreamer package for ZED Cameras. The package is composed of several elements:
 
 #### Install prerequisites
 
-* Install the latest ZED SDK v4 from the [official download page](https://www.stereolabs.com/developers/release/)
+* Install the latest ZED SDK v5.0-EA from the [official download page](https://www.stereolabs.com/developers/release/5.0)
 
-* Update list of `apt` available packages
+* Update the list of `apt` available packages
 
      `$ sudo apt update`
 
@@ -102,31 +102,31 @@ sudo make install
 
 ### Installation test
 
-* Check `ZED Video Source Element` installation inspecting its properties:
+* Check `ZED Video Source Element` installation, inspecting its properties:
   
   `gst-inspect-1.0 zedsrc`
 
-* Check `ZED X One Video Source Element` installation inspecting its properties:
+* Check `ZED X One Video Source Element` installation, inspecting its properties:
   
   `gst-inspect-1.0 zedxonesrc`
 
-* Check `ZED Video Demuxer` installation inspecting its properties:
+* Check `ZED Video Demuxer` installation, inspecting its properties:
   
   `gst-inspect-1.0 zeddemux`
 
-* Check `ZED Data Mux Element` installation inspecting its properties:
+* Check `ZED Data Mux Element` installation, inspecting its properties:
   
   `gst-inspect-1.0 zeddatamux`
 
-* Check `ZED CSV Sink Element` installation inspecting its properties:
+* Check `ZED CSV Sink Element` installation, inspecting its properties:
   
   `gst-inspect-1.0 zeddatacsvsink`
 
-* Check `ZED Object Detection Overlay Element` installation inspecting its properties:
+* Check `ZED Object Detection Overlay Element` installation, inspecting its properties:
   
   `gst-inspect-1.0 zedodoverlay`
 
-## Elements properties
+## Element properties
 
 ### `ZED Video Source Element` properties
 

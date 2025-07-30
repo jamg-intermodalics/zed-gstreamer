@@ -30,6 +30,8 @@
 #define OD_INSTANCE_MODULE_ID 0
 #define BT_INSTANCE_MODULE_ID 1
 
+#define MIN_CAMERA_FPS 15 // Minimum supported camera FPS as defined in ZED SDK API https://www.stereolabs.com/docs/api/structsl_1_1InitParameters.html#a8aebd3c5eea7c24cfa15a96cbb2ec8aa
+
 GST_DEBUG_CATEGORY_STATIC(gst_zedsrc_debug);
 #define GST_CAT_DEFAULT gst_zedsrc_debug
 
@@ -2263,7 +2265,7 @@ static gboolean gst_zedsrc_start(GstBaseSrc *bsrc) {
     // it needs to be inferior to camera_fps and strictly positive
     // Note that this is an upper limit and won't make a difference if the computation is slower than the desired compute capping FPS
 
-    if (src->camera_fps < 15) {
+    if (src->camera_fps < MIN_CAMERA_FPS) {
         init_params.grab_compute_capping_fps = src->camera_fps;
     }
 

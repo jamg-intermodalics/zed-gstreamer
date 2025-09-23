@@ -165,6 +165,9 @@ typedef enum {
     GST_ZEDSRC_30FPS = 30,
     GST_ZEDSRC_15FPS = 15,
     GST_ZEDSRC_10FPS = 10,
+    GST_ZEDSRC_5FPS = 5,
+    GST_ZEDSRC_2FPS = 2,
+    GST_ZEDSRC_1FPS = 1,
 } GstZedSrcFPS;
 
 typedef enum {
@@ -410,6 +413,9 @@ static GType gst_zedsrc_fps_get_type(void) {
              "30  FPS"},
             {GST_ZEDSRC_15FPS, "all resolutions (NO GMSL2)", "15  FPS"},
             {GST_ZEDSRC_10FPS, "all resolutions", "10  FPS"},
+            {GST_ZEDSRC_5FPS, "all resolutions", "5  FPS"},
+            {GST_ZEDSRC_2FPS, "all resolutions", "2  FPS"},
+            {GST_ZEDSRC_1FPS, "all resolutions", "1  FPS"},
             {0, NULL, NULL},
         };
 
@@ -860,10 +866,10 @@ static void gst_zedsrc_class_init(GstZedSrcClass *klass) {
         g_param_spec_string("svo-file-path", "SVO file", "Input from SVO file",
                             DEFAULT_PROP_SVO_FILE,
                             (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
-    
+
     g_object_class_install_property(
         gobject_class, PROP_OPENCV_CALIB_FILE,
-        g_param_spec_string("opencv-calibration-file", "Optional OpenCV Calibration File", "Optional OpenCV Calibration File", 
+        g_param_spec_string("opencv-calibration-file", "Optional OpenCV Calibration File", "Optional OpenCV Calibration File",
                             DEFAULT_PROP_OPENCV_CALIB_FILE,
                             (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
@@ -2251,7 +2257,16 @@ static gboolean gst_zedsrc_start(GstBaseSrc *bsrc) {
             return FALSE;
     }
     GST_INFO(" * Camera resolution: %s", sl::toString(init_params.camera_resolution).c_str());
+    // As per documentation if the requested setting is not supported, the closest available FPS will be used.
     init_params.camera_fps = src->camera_fps;
+    // we can enforce lower FPS by capping compute with grab_compute_capping_fps parameter
+    // it needs to be inferior to camera_fps and strictly positive
+    // Note that this is an upper limit and won't make a difference if the computation is slower than the desired compute capping FPS
+
+    if (src->camera_fps < 15) {
+        init_params.grab_compute_capping_fps = src->camera_fps;
+    }
+
     GST_INFO(" * Camera FPS: %d", init_params.camera_fps);
     init_params.sdk_verbose = src->sdk_verbose == TRUE;
     GST_INFO(" * SDK verbose: %s", (init_params.sdk_verbose ? "TRUE" : "FALSE"));
@@ -2307,7 +2322,7 @@ static gboolean gst_zedsrc_start(GstBaseSrc *bsrc) {
     init_params.camera_disable_self_calib = src->camera_disable_self_calib == TRUE;
     GST_INFO(" * Disable self calibration: %s",
              (init_params.camera_disable_self_calib ? "TRUE" : "FALSE"));
-    
+
     sl::String opencv_calibration_file(src->opencv_calibration_file.str);
     init_params.optional_opencv_calibration_file = opencv_calibration_file;
     GST_INFO(" * Calibration File: %s ", init_params.optional_opencv_calibration_file.c_str());
@@ -2389,7 +2404,7 @@ static gboolean gst_zedsrc_start(GstBaseSrc *bsrc) {
 
             src->zed.setCameraSettings(sl::VIDEO_SETTINGS::AEC_AGC_ROI, roi, side);
         }
-        
+
         src->zed.setCameraSettings(sl::VIDEO_SETTINGS::AUTO_EXPOSURE_TIME_RANGE, src->exposureRange_min, src->exposureRange_max);
         GST_INFO(" * AUTO EXPOSURE TIME RANGE: [%d,%d]", src->exposureRange_min, src->exposureRange_max);
     }
@@ -2429,9 +2444,9 @@ static gboolean gst_zedsrc_start(GstBaseSrc *bsrc) {
     GST_INFO(" * Fill Mode: %s", (src->fill_mode ? "TRUE" : "FALSE"));
 
     if (src->roi) {
-        if (src->roi_x != -1 && 
-                src->roi_y != -1 && 
-                src->roi_w != -1 && 
+        if (src->roi_x != -1 &&
+                src->roi_y != -1 &&
+                src->roi_w != -1 &&
                 src->roi_h != -1) {
             int roi_x_end = src->roi_x + src->roi_w;
             int roi_y_end = src->roi_y + src->roi_h;
@@ -2445,7 +2460,7 @@ static gboolean gst_zedsrc_start(GstBaseSrc *bsrc) {
                 for (unsigned int v = src->roi_y; v < roi_y_end; v++)
                   for (unsigned int u = src->roi_x; u < roi_x_end; u++)
                         roi_mask.setValue<sl::uchar1>(u, v, 255, sl::MEM::CPU);
-                
+
                 GST_INFO(" * ROI mask: (%d,%d)-%dx%d",
                         src->roi_x, src->roi_y, src->roi_w, src->roi_h);
 
@@ -2454,7 +2469,7 @@ static gboolean gst_zedsrc_start(GstBaseSrc *bsrc) {
                     GST_ELEMENT_ERROR (src, RESOURCE, NOT_FOUND,
                                     ("Failed to set region of interest, '%s'", sl::toString(ret).c_str() ), (NULL));
                     return FALSE;
-                } 
+                }
             }
         }
     }
@@ -2759,7 +2774,7 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
                 src->zed.setCameraSettings(sl::VIDEO_SETTINGS::AEC_AGC, src->aec_agc);
                 src->zed.setCameraSettings(sl::VIDEO_SETTINGS::AEC_AGC_ROI, roi, side);
                 src->exposure_gain_updated = FALSE;
-            }       
+            }
         }
     }
     // <---- Set runtime parameters

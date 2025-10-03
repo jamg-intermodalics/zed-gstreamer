@@ -629,6 +629,8 @@ static GType gst_zedsrc_depth_mode_get_type(void) {
              "More accurate Neural disparity estimation, Requires AI module.", "NEURAL_PLUS"},
             {static_cast<gint>(sl::DEPTH_MODE::NEURAL),
              "End to End Neural disparity estimation, requires AI module", "NEURAL"},
+            {static_cast<gint>(sl::DEPTH_MODE::NEURAL_LIGHT),
+             "End to End Neural disparity estimation. Requires AI module.", "NEURAL_LIGHT"},
             {static_cast<gint>(sl::DEPTH_MODE::ULTRA),
              "Computation mode favorising edges and sharpness. Requires more GPU memory and "
              "computation power.",
@@ -2214,7 +2216,7 @@ static gboolean gst_zedsrc_calculate_caps(GstZedSrc *src) {
 
 static gboolean gst_zedsrc_start(GstBaseSrc *bsrc) {
 #if (ZED_SDK_MAJOR_VERSION != 5)
-    GST_ELEMENT_ERROR(src, LIBRARY, FAILED, 
+    GST_ELEMENT_ERROR(src, LIBRARY, FAILED,
     ("Wrong ZED SDK version. SDK v5.0 EA or newer required "),
                       (NULL));
 #endif

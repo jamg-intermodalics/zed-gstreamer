@@ -2358,7 +2358,7 @@ static gboolean gst_zedsrc_start(GstBaseSrc *bsrc) {
     // ----> Open camera
     ret = src->zed.open(init_params);
 
-    if (ret != sl::ERROR_CODE::SUCCESS) {
+    if (ret > sl::ERROR_CODE::SUCCESS) {
         GST_ELEMENT_ERROR(src, RESOURCE, NOT_FOUND,
                           ("Failed to open camera, '%s'", sl::toString(ret).c_str()), (NULL));
         return FALSE;
@@ -2818,7 +2818,7 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     // ----> ZED grab
     ret = src->zed.grab(zedRtParams);
 
-    if (ret != sl::ERROR_CODE::SUCCESS) {
+    if (ret > sl::ERROR_CODE::SUCCESS) {
         GST_ELEMENT_ERROR(src, RESOURCE, FAILED,
                           ("Grabbing failed with error: '%s' - %s", sl::toString(ret).c_str(),
                            sl::toVerbose(ret).c_str()),

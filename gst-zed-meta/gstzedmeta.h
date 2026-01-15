@@ -27,6 +27,15 @@
 
 G_BEGIN_DECLS
 
+struct _ZedCamInfo{
+    guint width;
+    guint height;
+    gdouble k[9] = {0};
+    gdouble d[5] = {0};
+    gdouble r[9] = {0};
+    gdouble p[12] = {0};
+};
+
 typedef struct _GstZedSrcMeta GstZedSrcMeta;
 typedef struct _ZedInfo ZedInfo;
 typedef struct _ZedPose ZedPose;
@@ -190,6 +199,7 @@ struct _GstZedSrcMeta {
     guint8 obj_count;
     guint64 frame_id;
     ZedObjectData objects[256];
+    _ZedCamInfo cam_info;
 };
 
 namespace skeleton {
@@ -570,7 +580,7 @@ const GstMetaInfo *gst_zed_src_meta_get_info(void);
 
 GST_EXPORT
 GstZedSrcMeta *gst_buffer_add_zed_src_meta(GstBuffer *buffer, ZedInfo &info, ZedPose &pose, ZedSensors &sens, gboolean od_enabled, guint8 obj_count,
-                                           ZedObjectData *objects, guint64 frame_id, guint64 timestamp_ns = 0);
+                                           ZedObjectData *objects, guint64 frame_id, _ZedCamInfo &cam_info, guint64 timestamp_ns = 0);
 
 G_END_DECLS
 

@@ -1250,12 +1250,37 @@ static GstFlowReturn gst_zedxonesrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     GST_BUFFER_OFFSET(buf) = temp_ugly_buf_index++;
     // <---- Timestamp meta-data
 
+    // ZED X One is single-lens, so we use the top-level calibration parameters
+    auto calibration = cam_info.camera_configuration.calibration_parameters;
+
+    _ZedCamInfo cam_intrinsics;
+    cam_intrinsics.width  = cam_info.camera_configuration.resolution.width;
+    cam_intrinsics.height = cam_info.camera_configuration.resolution.height;
+
+    // 1. Map K Matrix (Intrinsic)
+    cam_intrinsics.k[0] = calibration.fx; cam_intrinsics.k[1] = 0;              cam_intrinsics.k[2] = calibration.cx;
+    cam_intrinsics.k[3] = 0;              cam_intrinsics.k[4] = calibration.fy;  cam_intrinsics.k[5] = calibration.cy;
+    cam_intrinsics.k[6] = 0;              cam_intrinsics.k[7] = 0;              cam_intrinsics.k[8] = 1.0;
+
+    // 2. Map D Vector (Distortion)
+    for (int i = 0; i < 5; i++) cam_intrinsics.d[i] = calibration.disto[i];
+
+    // 3. Map R Matrix (Rectification - Identity for single lens)
+    static const float I[9] = { 1.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f };
+    for (int i = 0; i < 9; i++) cam_intrinsics.r[i] = I[i];
+
+    // 4. Map P Matrix (Projection)
+    cam_intrinsics.p[0] = calibration.fx; cam_intrinsics.p[1] = 0;              cam_intrinsics.p[2] = calibration.cx; cam_intrinsics.p[3] = 0;
+    cam_intrinsics.p[4] = 0;              cam_intrinsics.p[5] = calibration.fy;  cam_intrinsics.p[6] = calibration.cy; cam_intrinsics.p[7] = 0;
+    cam_intrinsics.p[8] = 0;              cam_intrinsics.p[9] = 0;              cam_intrinsics.p[10] = 1.0;           cam_intrinsics.p[11] = 0;
+    // -----> Camera Intrinsics metadata end
+
     GST_TRACE("PUSH Buffer meta-data");
     guint64 offset = GST_BUFFER_OFFSET(buf);
     guint64 timestamp_ns = src->_zed->getTimestamp(sl::TIME_REFERENCE::IMAGE);
     GstZedSrcMeta *meta = gst_buffer_add_zed_src_meta(buf, info, pose, sens,
                                                       false,
-                                                      0, NULL, offset, timestamp_ns);
+                                                      0, NULL, offset, cam_intrinsics, timestamp_ns);
 
     // Buffer release
     GST_TRACE("Buffer release");

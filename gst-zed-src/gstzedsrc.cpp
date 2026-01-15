@@ -3249,11 +3249,45 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     GST_BUFFER_OFFSET(buf) = temp_ugly_buf_index++;
     // <---- Timestamp meta-data
 
+    // <---- Camera Intrinsics metadata
+    // 1. Point to the calibration data inside the ZED "Book"
+    auto calibration = cam_info.camera_configuration.calibration_parameters.left_cam;
+
+    // 2. Create your new struct instance
+    _ZedCamInfo cam_intrinsics;
+    cam_intrinsics.width  = cam_info.camera_configuration.resolution.width;
+    cam_intrinsics.height = cam_info.camera_configuration.resolution.height;
+
+    // 3. Map K Matrix [fx, 0, cx, 0, fy, cy, 0, 0, 1]
+    cam_intrinsics.k[0] = calibration.fx; cam_intrinsics.k[1] = 0;              cam_intrinsics.k[2] = calibration.cx;
+    cam_intrinsics.k[3] = 0;              cam_intrinsics.k[4] = calibration.fy;  cam_intrinsics.k[5] = calibration.cy;
+    cam_intrinsics.k[6] = 0;              cam_intrinsics.k[7] = 0;              cam_intrinsics.k[8] = 1.0;
+
+    // 4. Map D Vector (5 parameters for ZED)
+    for (int i = 0; i < 5; i++) cam_intrinsics.d[i] = calibration.disto[i];
+
+    // 5. Map R Matrix (Rectification - 3x3)
+    static const float I[9] = {
+        1.f, 0.f, 0.f,
+        0.f, 1.f, 0.f,
+        0.f, 0.f, 1.f
+    };
+
+    for (int i = 0; i < 9; i++) {
+        cam_intrinsics.r[i] = I[i];
+    }
+    
+    // 6. Map P Matrix (Projection - 3x4)
+    cam_intrinsics.p[0] = calibration.fx; cam_intrinsics.p[1] = 0;              cam_intrinsics.p[2] = calibration.cx; cam_intrinsics.p[3] = 0;
+    cam_intrinsics.p[4] = 0;              cam_intrinsics.p[5] = calibration.fy;  cam_intrinsics.p[6] = calibration.cy; cam_intrinsics.p[7] = 0;
+    cam_intrinsics.p[8] = 0;              cam_intrinsics.p[9] = 0;              cam_intrinsics.p[10] = 1.0;           cam_intrinsics.p[11] = 0;
+    // -----> Camera Intrinsics metadata end
+
     guint64 offset = GST_BUFFER_OFFSET(buf);
     guint64 timestamp_ns = src->zed.getTimestamp(sl::TIME_REFERENCE::IMAGE);
     GstZedSrcMeta *meta = gst_buffer_add_zed_src_meta(buf, info, pose, sens,
                                                       src->object_detection | src->body_tracking,
-                                                      obj_count, obj_data, offset, timestamp_ns);
+                                                      obj_count, obj_data, offset, cam_intrinsics, timestamp_ns);
 
     // Buffer release
     gst_buffer_unmap(buf, &minfo);

@@ -1253,7 +1253,7 @@ static GstFlowReturn gst_zedxonesrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     // ZED X One is single-lens, so we use the top-level calibration parameters
     auto calibration = cam_info.camera_configuration.calibration_parameters;
 
-    _ZedCamInfo cam_intrinsics;
+    ZedCamInfo cam_intrinsics;
     cam_intrinsics.width  = cam_info.camera_configuration.resolution.width;
     cam_intrinsics.height = cam_info.camera_configuration.resolution.height;
 

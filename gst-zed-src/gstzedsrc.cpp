@@ -2717,6 +2717,44 @@ static gboolean gst_zedsrc_unlock_stop(GstBaseSrc *bsrc) {
     return TRUE;
 }
 
+DistortionModel getDistortionInfo(sl::MODEL camera_model,
+                                 const sl::CameraParameters& left_cam,
+                                 const sl::CameraParameters& right_cam) {
+    DistortionModel distortion_model;
+
+    switch (camera_model) {
+        case sl::MODEL::ZED:
+            distortion_model = DistortionModel::PLUMB_BOB;
+
+        case sl::MODEL::ZED2:
+        case sl::MODEL::ZED2i:
+        case sl::MODEL::ZED_X:
+        case sl::MODEL::ZED_XM:
+        case sl::MODEL::VIRTUAL_ZED_X:
+            distortion_model = DistortionModel::RATIONAL_POLYNOMIAL;
+
+        case sl::MODEL::ZED_M:
+            // ZED Mini: fisheye (equidistant) if k4!=0 and no tangential distortion
+            if (left_cam.disto[5] != 0 &&
+                right_cam.disto[2] == 0 &&
+                right_cam.disto[3] == 0) {
+                distortion_model = DistortionModel::EQUIDISTANT;
+            } else {
+                distortion_model = DistortionModel::PLUMB_BOB;
+            }
+
+        default:
+            // Safe fallback: check the data itself
+            if (left_cam.disto[5] != 0 || left_cam.disto[6] != 0 || left_cam.disto[7] != 0) {
+                distortion_model = DistortionModel::RATIONAL_POLYNOMIAL;
+            }
+            else{
+                distortion_model = DistortionModel::PLUMB_BOB;
+            } 
+    }
+    return distortion_model;
+}
+
 static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     GstZedSrc *src = GST_ZED_SRC(psrc);
 
@@ -3251,22 +3289,34 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
 
     // <---- Camera Intrinsics metadata
     // 1. Point to the calibration data inside the ZED "Book"
-    auto calibration = cam_info.camera_configuration.calibration_parameters.left_cam;
+    sl::MODEL model = cam_info.camera_model;
+    auto calibration = cam_info.camera_configuration.calibration_parameters;
+    auto disto_model = getDistortionInfo(model, calibration.left_cam, calibration.right_cam);
 
     // 2. Create your new struct instance
-    _ZedCamInfo cam_intrinsics;
-    cam_intrinsics.width  = cam_info.camera_configuration.resolution.width;
-    cam_intrinsics.height = cam_info.camera_configuration.resolution.height;
+    ZedCamInfo cam_info;
+    cam_info.cam_left_width  = cam_info.camera_configuration.resolution.width;
+    cam_info.cam_left_height = cam_info.camera_configuration.resolution.height;
+    cam_info.cam_right_width  = cam_info.camera_configuration.resolution.width;
+    cam_info.cam_right_height = cam_info.camera_configuration.resolution.height;
+
 
     // 3. Map K Matrix [fx, 0, cx, 0, fy, cy, 0, 0, 1]
-    cam_intrinsics.k[0] = calibration.fx; cam_intrinsics.k[1] = 0;              cam_intrinsics.k[2] = calibration.cx;
-    cam_intrinsics.k[3] = 0;              cam_intrinsics.k[4] = calibration.fy;  cam_intrinsics.k[5] = calibration.cy;
-    cam_intrinsics.k[6] = 0;              cam_intrinsics.k[7] = 0;              cam_intrinsics.k[8] = 1.0;
+    cam_info.cam_left_k[0] = calibration.left_cam.fx; cam_info.cam_left_k[1] = 0;              cam_info.cam_left_k[2] = calibration.left_cam.cx;
+    cam_info.cam_left_k[3] = 0;              cam_info.cam_left_k[4] = calibration.left_cam.fy;  cam_info.cam_left_k[5] = calibration.left_cam.cy;
+    cam_info.cam_left_k[6] = 0;              cam_info.cam_left_k[7] = 0;              cam_info.cam_left_k[8] = 1.0;
+
+    cam_info.cam_right_k[0] = calibration.right_cam.fx; cam_info.cam_right_k[1] = 0;              cam_info.cam_right_k[2] = calibration.right_cam.cx;
+    cam_info.cam_right_k[3] = 0;              cam_info.cam_right_k[4] = calibration.right_cam.fy;  cam_info.cam_right_k[5] = calibration.right_cam.cy;
+    cam_info.cam_right_k[6] = 0;              cam_info.cam_right_k[7] = 0;              cam_info.cam_right_k[8] = 1.0;
+
 
     // 4. Map D Vector (5 parameters for ZED)
-    for (int i = 0; i < 5; i++) cam_intrinsics.d[i] = calibration.disto[i];
+    for (int i = 0; i < sizeof(calibration.left_cam.disto)/sizeof(calibration.left_cam.disto[0]); i++) cam_info.cam_left_d[i] = calibration.left_cam.disto[i];
+    for (int i = 0; i < sizeof(calibration.right_cam.disto)/sizeof(calibration.right_cam.disto[0]); i++) cam_info.cam_right_d[i] = calibration.right_cam.disto[i];
 
     // 5. Map R Matrix (Rectification - 3x3)
+    // The images are fetched in such way that they are already rectified, so we can set R as Identity
     static const float I[9] = {
         1.f, 0.f, 0.f,
         0.f, 1.f, 0.f,
@@ -3274,20 +3324,27 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     };
 
     for (int i = 0; i < 9; i++) {
-        cam_intrinsics.r[i] = I[i];
+        cam_info.r[i] = I[i];
     }
     
     // 6. Map P Matrix (Projection - 3x4)
-    cam_intrinsics.p[0] = calibration.fx; cam_intrinsics.p[1] = 0;              cam_intrinsics.p[2] = calibration.cx; cam_intrinsics.p[3] = 0;
-    cam_intrinsics.p[4] = 0;              cam_intrinsics.p[5] = calibration.fy;  cam_intrinsics.p[6] = calibration.cy; cam_intrinsics.p[7] = 0;
-    cam_intrinsics.p[8] = 0;              cam_intrinsics.p[9] = 0;              cam_intrinsics.p[10] = 1.0;           cam_intrinsics.p[11] = 0;
+    cam_info.cam_left_p[0] = calibration.left_cam.fx; cam_info.cam_left_p[1] = 0;              cam_info.cam_left_p[2] = calibration.left_cam.cx; cam_info.cam_left_p[3] = 0;
+    cam_info.cam_left_p[4] = 0;              cam_info.cam_left_p[5] = calibration.left_cam.fy;  cam_info.cam_left_p[6] = calibration.left_cam.cy; cam_info.cam_left_p[7] = 0;
+    cam_info.cam_left_p[8] = 0;              cam_info.cam_left_p[9] = 0;              cam_info.cam_left_p[10] = 1.0;           cam_info.cam_left_p[11] = 0;
+    
+    cam_info.cam_right_p[0] = calibration.right_cam.fx; cam_info.cam_right_p[1] = 0;              cam_info.cam_right_p[2] = calibration.right_cam.cx; cam_info.cam_right_p[3] = 0;
+    cam_info.cam_right_p[4] = 0;              cam_info.cam_right_p[5] = calibration.right_cam.fy;  cam_info.cam_right_p[6] = calibration.right_cam.cy; cam_info.cam_right_p[7] = 0;
+    cam_info.cam_right_p[8] = 0;              cam_info.cam_right_p[9] = 0;              cam_info.cam_right_p[10] = 1.0;           cam_info.cam_right_p[11] = 0;
+       
     // -----> Camera Intrinsics metadata end
 
+
+    cam_info.distortion_model = disto_model;
     guint64 offset = GST_BUFFER_OFFSET(buf);
     guint64 timestamp_ns = src->zed.getTimestamp(sl::TIME_REFERENCE::IMAGE);
     GstZedSrcMeta *meta = gst_buffer_add_zed_src_meta(buf, info, pose, sens,
                                                       src->object_detection | src->body_tracking,
-                                                      obj_count, obj_data, offset, cam_intrinsics, timestamp_ns);
+                                                      obj_count, obj_data, offset, cam_info, timestamp_ns);
 
     // Buffer release
     gst_buffer_unmap(buf, &minfo);

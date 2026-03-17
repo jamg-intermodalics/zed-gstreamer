@@ -27,15 +27,6 @@
 
 G_BEGIN_DECLS
 
-struct _ZedCamInfo{
-    guint width;
-    guint height;
-    gdouble k[9] = {0};
-    gdouble d[5] = {0};
-    gdouble r[9] = {0};
-    gdouble p[12] = {0};
-};
-
 typedef struct _GstZedSrcMeta GstZedSrcMeta;
 typedef struct _ZedInfo ZedInfo;
 typedef struct _ZedPose ZedPose;
@@ -45,6 +36,7 @@ typedef struct _ZedMag ZedMag;
 typedef struct _ZedEnv ZedEnv;
 typedef struct _ZedCamTemp ZedCamTemp;
 typedef struct _ZedObjectData ZedObjectData;
+typedef struct _ZedCamInfo ZedCamInfo;
 
 struct _ZedInfo {
     gint cam_model;
@@ -90,6 +82,32 @@ struct _ZedSensors {
     ZedMag mag;
     ZedEnv env;
     ZedCamTemp temp;
+};
+
+enum DistortionModel{
+    PLUMB_BOB,
+    RATIONAL_POLYNOMIAL,
+    EQUIDISTANT,
+    None
+};
+
+struct ZedCamInfo{
+    //cam_left
+    guint cam_left_width;
+    guint cam_left_height;
+    gdouble cam_left_k[9] = {0};
+    gdouble cam_left_d[12] = {0};
+    gdouble cam_left_r[9] = {0};
+    gdouble cam_left_p[12] = {0};
+
+    // cam_right
+    guint cam_right_width;
+    guint cam_right_height;
+    gdouble cam_right_k[9] = {0};   
+    gdouble cam_right_d[12] = {0};  
+    gdouble cam_right_r[9] = {0};
+    gdouble cam_right_p[12] = {0};
+    DistortionModel distortion_model; 
 };
 
 enum class OBJECT_CLASS {
@@ -199,7 +217,7 @@ struct _GstZedSrcMeta {
     guint8 obj_count;
     guint64 frame_id;
     ZedObjectData objects[256];
-    _ZedCamInfo cam_info;
+    ZedCamInfo cam_info;
 };
 
 namespace skeleton {
@@ -580,7 +598,7 @@ const GstMetaInfo *gst_zed_src_meta_get_info(void);
 
 GST_EXPORT
 GstZedSrcMeta *gst_buffer_add_zed_src_meta(GstBuffer *buffer, ZedInfo &info, ZedPose &pose, ZedSensors &sens, gboolean od_enabled, guint8 obj_count,
-                                           ZedObjectData *objects, guint64 frame_id, _ZedCamInfo &cam_info, guint64 timestamp_ns = 0);
+                                           ZedObjectData *objects, guint64 frame_id, ZedCamInfo &cam_info, guint64 timestamp_ns = 0);
 
 G_END_DECLS
 

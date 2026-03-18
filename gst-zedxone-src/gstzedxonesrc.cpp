@@ -1253,26 +1253,38 @@ static GstFlowReturn gst_zedxonesrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     // ZED X One is single-lens, so we use the top-level calibration parameters
     auto calibration = cam_info.camera_configuration.calibration_parameters;
 
-    ZedCamInfo cam_intrinsics;
-    cam_intrinsics.width  = cam_info.camera_configuration.resolution.width;
-    cam_intrinsics.height = cam_info.camera_configuration.resolution.height;
+    ZedCamInfo camera_info;
+    camera_info.cam_left_width  = cam_info.camera_configuration.resolution.width;
+    camera_info.cam_left_height = cam_info.camera_configuration.resolution.height;
 
     // 1. Map K Matrix (Intrinsic)
-    cam_intrinsics.k[0] = calibration.fx; cam_intrinsics.k[1] = 0;              cam_intrinsics.k[2] = calibration.cx;
-    cam_intrinsics.k[3] = 0;              cam_intrinsics.k[4] = calibration.fy;  cam_intrinsics.k[5] = calibration.cy;
-    cam_intrinsics.k[6] = 0;              cam_intrinsics.k[7] = 0;              cam_intrinsics.k[8] = 1.0;
+    camera_info.cam_left_k[0] = calibration.fx; camera_info.cam_left_k[1] = 0;              camera_info.cam_left_k[2] = calibration.cx;
+    camera_info.cam_left_k[3] = 0;              camera_info.cam_left_k[4] = calibration.fy;  camera_info.cam_left_k[5] = calibration.cy;
+    camera_info.cam_left_k[6] = 0;              camera_info.cam_left_k[7] = 0;              camera_info.cam_left_k[8] = 1.0;
+
+    camera_info.cam_right_k[0] = calibration.fx; camera_info.cam_right_k[1] = 0;              camera_info.cam_right_k[2] = calibration.cx;
+    camera_info.cam_right_k[3] = 0;              camera_info.cam_right_k[4] = calibration.fy;  camera_info.cam_right_k[5] = calibration.cy;
+    camera_info.cam_right_k[6] = 0;              camera_info.cam_right_k[7] = 0;              camera_info.cam_right_k[8] = 1.0;
+
+
 
     // 2. Map D Vector (Distortion)
-    for (int i = 0; i < 5; i++) cam_intrinsics.d[i] = calibration.disto[i];
+    for (int i = 0; i < 5; i++) camera_info.cam_left_d[i] = calibration.disto[i];
+    for (int i = 0; i < 5; i++) camera_info.cam_right_d[i] = calibration.disto[i];
 
     // 3. Map R Matrix (Rectification - Identity for single lens)
     static const float I[9] = { 1.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f };
-    for (int i = 0; i < 9; i++) cam_intrinsics.r[i] = I[i];
+    for (int i = 0; i < 9; i++) camera_info.cam_left_r[i] = I[i];
+    for (int i = 0; i < 9; i++) camera_info.cam_right_r[i] = I[i];
 
     // 4. Map P Matrix (Projection)
-    cam_intrinsics.p[0] = calibration.fx; cam_intrinsics.p[1] = 0;              cam_intrinsics.p[2] = calibration.cx; cam_intrinsics.p[3] = 0;
-    cam_intrinsics.p[4] = 0;              cam_intrinsics.p[5] = calibration.fy;  cam_intrinsics.p[6] = calibration.cy; cam_intrinsics.p[7] = 0;
-    cam_intrinsics.p[8] = 0;              cam_intrinsics.p[9] = 0;              cam_intrinsics.p[10] = 1.0;           cam_intrinsics.p[11] = 0;
+    camera_info.cam_left_p[0] = calibration.fx; camera_info.cam_left_p[1] = 0;              camera_info.cam_left_p[2] = calibration.cx; camera_info.cam_left_p[3] = 0;
+    camera_info.cam_left_p[4] = 0;              camera_info.cam_left_p[5] = calibration.fy;  camera_info.cam_left_p[6] = calibration.cy; camera_info.cam_left_p[7] = 0;
+    camera_info.cam_left_p[8] = 0;              camera_info.cam_left_p[9] = 0;              camera_info.cam_left_p[10] = 1.0;           camera_info.cam_left_p[11] = 0;
+    
+    camera_info.cam_right_p[0] = calibration.fx; camera_info.cam_right_p[1] = 0;              camera_info.cam_right_p[2] = calibration.cx; camera_info.cam_right_p[3] = 0;
+    camera_info.cam_right_p[4] = 0;              camera_info.cam_right_p[5] = calibration.fy;  camera_info.cam_right_p[6] = calibration.cy; camera_info.cam_right_p[7] = 0;
+    camera_info.cam_right_p[8] = 0;              camera_info.cam_right_p[9] = 0;              camera_info.cam_right_p[10] = 1.0;           camera_info.cam_right_p[11] = 0;
     // -----> Camera Intrinsics metadata end
 
     GST_TRACE("PUSH Buffer meta-data");
@@ -1280,7 +1292,7 @@ static GstFlowReturn gst_zedxonesrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     guint64 timestamp_ns = src->_zed->getTimestamp(sl::TIME_REFERENCE::IMAGE);
     GstZedSrcMeta *meta = gst_buffer_add_zed_src_meta(buf, info, pose, sens,
                                                       false,
-                                                      0, NULL, offset, cam_intrinsics, timestamp_ns);
+                                                      0, NULL, offset, camera_info, timestamp_ns);
 
     // Buffer release
     GST_TRACE("Buffer release");

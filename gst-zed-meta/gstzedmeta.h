@@ -91,7 +91,7 @@ enum DistortionModel{
     None
 };
 
-struct ZedCamInfo{
+struct _ZedCamInfo{
     //cam_left
     guint cam_left_width;
     guint cam_left_height;

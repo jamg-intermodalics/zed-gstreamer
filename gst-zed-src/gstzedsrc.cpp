@@ -2725,6 +2725,7 @@ DistortionModel getDistortionInfo(sl::MODEL camera_model,
     switch (camera_model) {
         case sl::MODEL::ZED:
             distortion_model = DistortionModel::PLUMB_BOB;
+            break;
 
         case sl::MODEL::ZED2:
         case sl::MODEL::ZED2i:
@@ -2732,6 +2733,7 @@ DistortionModel getDistortionInfo(sl::MODEL camera_model,
         case sl::MODEL::ZED_XM:
         case sl::MODEL::VIRTUAL_ZED_X:
             distortion_model = DistortionModel::RATIONAL_POLYNOMIAL;
+            break;
 
         case sl::MODEL::ZED_M:
             // ZED Mini: fisheye (equidistant) if k4!=0 and no tangential distortion
@@ -2742,6 +2744,7 @@ DistortionModel getDistortionInfo(sl::MODEL camera_model,
             } else {
                 distortion_model = DistortionModel::PLUMB_BOB;
             }
+            break;
 
         default:
             // Safe fallback: check the data itself
@@ -2750,7 +2753,8 @@ DistortionModel getDistortionInfo(sl::MODEL camera_model,
             }
             else{
                 distortion_model = DistortionModel::PLUMB_BOB;
-            } 
+            }
+            break;
     }
     return distortion_model;
 }
@@ -3294,26 +3298,26 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     auto disto_model = getDistortionInfo(model, calibration.left_cam, calibration.right_cam);
 
     // 2. Create your new struct instance
-    ZedCamInfo cam_info;
-    cam_info.cam_left_width  = cam_info.camera_configuration.resolution.width;
-    cam_info.cam_left_height = cam_info.camera_configuration.resolution.height;
-    cam_info.cam_right_width  = cam_info.camera_configuration.resolution.width;
-    cam_info.cam_right_height = cam_info.camera_configuration.resolution.height;
+    ZedCamInfo camera_info;
+    camera_info.cam_left_width  = cam_info.camera_configuration.resolution.width;
+    camera_info.cam_left_height = cam_info.camera_configuration.resolution.height;
+    camera_info.cam_right_width  = cam_info.camera_configuration.resolution.width;
+    camera_info.cam_right_height = cam_info.camera_configuration.resolution.height;
 
 
     // 3. Map K Matrix [fx, 0, cx, 0, fy, cy, 0, 0, 1]
-    cam_info.cam_left_k[0] = calibration.left_cam.fx; cam_info.cam_left_k[1] = 0;              cam_info.cam_left_k[2] = calibration.left_cam.cx;
-    cam_info.cam_left_k[3] = 0;              cam_info.cam_left_k[4] = calibration.left_cam.fy;  cam_info.cam_left_k[5] = calibration.left_cam.cy;
-    cam_info.cam_left_k[6] = 0;              cam_info.cam_left_k[7] = 0;              cam_info.cam_left_k[8] = 1.0;
+    camera_info.cam_left_k[0] = calibration.left_cam.fx; camera_info.cam_left_k[1] = 0;              camera_info.cam_left_k[2] = calibration.left_cam.cx;
+    camera_info.cam_left_k[3] = 0;              camera_info.cam_left_k[4] = calibration.left_cam.fy;  camera_info.cam_left_k[5] = calibration.left_cam.cy;
+    camera_info.cam_left_k[6] = 0;              camera_info.cam_left_k[7] = 0;              camera_info.cam_left_k[8] = 1.0;
 
-    cam_info.cam_right_k[0] = calibration.right_cam.fx; cam_info.cam_right_k[1] = 0;              cam_info.cam_right_k[2] = calibration.right_cam.cx;
-    cam_info.cam_right_k[3] = 0;              cam_info.cam_right_k[4] = calibration.right_cam.fy;  cam_info.cam_right_k[5] = calibration.right_cam.cy;
-    cam_info.cam_right_k[6] = 0;              cam_info.cam_right_k[7] = 0;              cam_info.cam_right_k[8] = 1.0;
+    camera_info.cam_right_k[0] = calibration.right_cam.fx; camera_info.cam_right_k[1] = 0;              camera_info.cam_right_k[2] = calibration.right_cam.cx;
+    camera_info.cam_right_k[3] = 0;              camera_info.cam_right_k[4] = calibration.right_cam.fy;  camera_info.cam_right_k[5] = calibration.right_cam.cy;
+    camera_info.cam_right_k[6] = 0;              camera_info.cam_right_k[7] = 0;              camera_info.cam_right_k[8] = 1.0;
 
 
     // 4. Map D Vector (5 parameters for ZED)
-    for (int i = 0; i < sizeof(calibration.left_cam.disto)/sizeof(calibration.left_cam.disto[0]); i++) cam_info.cam_left_d[i] = calibration.left_cam.disto[i];
-    for (int i = 0; i < sizeof(calibration.right_cam.disto)/sizeof(calibration.right_cam.disto[0]); i++) cam_info.cam_right_d[i] = calibration.right_cam.disto[i];
+    for (int i = 0; i < sizeof(calibration.left_cam.disto)/sizeof(calibration.left_cam.disto[0]); i++) camera_info.cam_left_d[i] = calibration.left_cam.disto[i];
+    for (int i = 0; i < sizeof(calibration.right_cam.disto)/sizeof(calibration.right_cam.disto[0]); i++) camera_info.cam_right_d[i] = calibration.right_cam.disto[i];
 
     // 5. Map R Matrix (Rectification - 3x3)
     // The images are fetched in such way that they are already rectified, so we can set R as Identity
@@ -3324,27 +3328,27 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     };
 
     for (int i = 0; i < 9; i++) {
-        cam_info.r[i] = I[i];
+        camera_info.cam_left_r[i] = I[i];
+        camera_info.cam_right_r[i] = I[i];
     }
     
     // 6. Map P Matrix (Projection - 3x4)
-    cam_info.cam_left_p[0] = calibration.left_cam.fx; cam_info.cam_left_p[1] = 0;              cam_info.cam_left_p[2] = calibration.left_cam.cx; cam_info.cam_left_p[3] = 0;
-    cam_info.cam_left_p[4] = 0;              cam_info.cam_left_p[5] = calibration.left_cam.fy;  cam_info.cam_left_p[6] = calibration.left_cam.cy; cam_info.cam_left_p[7] = 0;
-    cam_info.cam_left_p[8] = 0;              cam_info.cam_left_p[9] = 0;              cam_info.cam_left_p[10] = 1.0;           cam_info.cam_left_p[11] = 0;
+    camera_info.cam_left_p[0] = calibration.left_cam.fx; camera_info.cam_left_p[1] = 0;              camera_info.cam_left_p[2] = calibration.left_cam.cx; camera_info.cam_left_p[3] = 0;
+    camera_info.cam_left_p[4] = 0;              camera_info.cam_left_p[5] = calibration.left_cam.fy;  camera_info.cam_left_p[6] = calibration.left_cam.cy; camera_info.cam_left_p[7] = 0;
+    camera_info.cam_left_p[8] = 0;              camera_info.cam_left_p[9] = 0;              camera_info.cam_left_p[10] = 1.0;           camera_info.cam_left_p[11] = 0;
     
-    cam_info.cam_right_p[0] = calibration.right_cam.fx; cam_info.cam_right_p[1] = 0;              cam_info.cam_right_p[2] = calibration.right_cam.cx; cam_info.cam_right_p[3] = 0;
-    cam_info.cam_right_p[4] = 0;              cam_info.cam_right_p[5] = calibration.right_cam.fy;  cam_info.cam_right_p[6] = calibration.right_cam.cy; cam_info.cam_right_p[7] = 0;
-    cam_info.cam_right_p[8] = 0;              cam_info.cam_right_p[9] = 0;              cam_info.cam_right_p[10] = 1.0;           cam_info.cam_right_p[11] = 0;
+    camera_info.cam_right_p[0] = calibration.right_cam.fx; camera_info.cam_right_p[1] = 0;              camera_info.cam_right_p[2] = calibration.right_cam.cx; camera_info.cam_right_p[3] = 0;
+    camera_info.cam_right_p[4] = 0;              camera_info.cam_right_p[5] = calibration.right_cam.fy;  camera_info.cam_right_p[6] = calibration.right_cam.cy; camera_info.cam_right_p[7] = 0;
+    camera_info.cam_right_p[8] = 0;              camera_info.cam_right_p[9] = 0;              camera_info.cam_right_p[10] = 1.0;           camera_info.cam_right_p[11] = 0;
        
     // -----> Camera Intrinsics metadata end
 
-
-    cam_info.distortion_model = disto_model;
+    camera_info.distortion_model = disto_model;
     guint64 offset = GST_BUFFER_OFFSET(buf);
     guint64 timestamp_ns = src->zed.getTimestamp(sl::TIME_REFERENCE::IMAGE);
     GstZedSrcMeta *meta = gst_buffer_add_zed_src_meta(buf, info, pose, sens,
                                                       src->object_detection | src->body_tracking,
-                                                      obj_count, obj_data, offset, cam_info, timestamp_ns);
+                                                      obj_count, obj_data, offset, camera_info, timestamp_ns);
 
     // Buffer release
     gst_buffer_unmap(buf, &minfo);

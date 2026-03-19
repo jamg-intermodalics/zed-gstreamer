@@ -681,7 +681,7 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
                     // Add metadata
                     gst_buffer_add_zed_src_meta(left_proc_buf, meta->info, meta->pose, meta->sens,
                                                 meta->od_enabled, meta->obj_count, meta->objects,
-                                                meta->frame_id, meta->timestamp_ns);
+                                                meta->frame_id, meta->cam_info, meta->timestamp_ns);
                 }
 
                 GST_TRACE("Left buffer set timestamp");
@@ -749,7 +749,7 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
                     // Add metadata
                     gst_buffer_add_zed_src_meta(mono_proc_buf, meta->info, meta->pose, meta->sens,
                                                 meta->od_enabled, meta->obj_count, meta->objects,
-                                                meta->frame_id, meta->timestamp_ns);
+                                                meta->frame_id, meta->cam_info, meta->timestamp_ns);
                 }
 
                 GST_TRACE("Mono buffer set timestamp");
@@ -835,7 +835,7 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
                     // Add metadata
                     gst_buffer_add_zed_src_meta(aux_proc_buf, meta->info, meta->pose, meta->sens,
                                                 meta->od_enabled, meta->obj_count, meta->objects,
-                                                meta->frame_id, meta->timestamp_ns);
+                                                meta->frame_id, meta->cam_info, meta->timestamp_ns);
                 }
 
                 GST_TRACE("Aux buffer set timestamp");

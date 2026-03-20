@@ -2720,43 +2720,35 @@ static gboolean gst_zedsrc_unlock_stop(GstBaseSrc *bsrc) {
 DistortionModel getDistortionInfo(sl::MODEL camera_model,
                                  const sl::CameraParameters& left_cam,
                                  const sl::CameraParameters& right_cam) {
-    DistortionModel distortion_model;
-
     switch (camera_model) {
         case sl::MODEL::ZED:
-            distortion_model = DistortionModel::PLUMB_BOB;
-            break;
-
+            return DistortionModel::PLUMB_BOB;
         case sl::MODEL::ZED2:
         case sl::MODEL::ZED2i:
         case sl::MODEL::ZED_X:
         case sl::MODEL::ZED_XM:
         case sl::MODEL::VIRTUAL_ZED_X:
-            distortion_model = DistortionModel::RATIONAL_POLYNOMIAL;
-            break;
-
+            return DistortionModel::RATIONAL_POLYNOMIAL;
         case sl::MODEL::ZED_M:
             // ZED Mini: fisheye (equidistant) if k4!=0 and no tangential distortion
             if (left_cam.disto[5] != 0 &&
                 right_cam.disto[2] == 0 &&
                 right_cam.disto[3] == 0) {
-                distortion_model = DistortionModel::EQUIDISTANT;
+                return DistortionModel::EQUIDISTANT;
             } else {
-                distortion_model = DistortionModel::PLUMB_BOB;
+                return DistortionModel::PLUMB_BOB;
             }
-            break;
 
         default:
             // Safe fallback: check the data itself
             if (left_cam.disto[5] != 0 || left_cam.disto[6] != 0 || left_cam.disto[7] != 0) {
-                distortion_model = DistortionModel::RATIONAL_POLYNOMIAL;
+                return DistortionModel::RATIONAL_POLYNOMIAL;
             }
             else{
-                distortion_model = DistortionModel::PLUMB_BOB;
+                return DistortionModel::PLUMB_BOB;
             }
-            break;
     }
-    return distortion_model;
+    return DistortionModel::PLUMB_BOB;
 }
 
 static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
@@ -3292,10 +3284,12 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     // <---- Timestamp meta-data
 
     // <---- Camera Intrinsics metadata
+    // WARNING! Please note that we are fetching the calibration data at runtime for each frame,
+    // which isn't optimal, in case there is some major performance drop we should investigate it!
+    // TODO: if performance is an issue we can fetch the calibration data once at the start and store it in the src struct, since it doesn't change during runtime
     // 1. Point to the calibration data inside the ZED "Book"
     sl::MODEL model = cam_info.camera_model;
     auto calibration = cam_info.camera_configuration.calibration_parameters;
-    auto disto_model = getDistortionInfo(model, calibration.left_cam, calibration.right_cam);
 
     // 2. Create your new struct instance
     ZedCamInfo camera_info;
@@ -3343,7 +3337,7 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
        
     // -----> Camera Intrinsics metadata end
 
-    camera_info.distortion_model = disto_model;
+    camera_info.distortion_model = getDistortionInfo(model, calibration.left_cam, calibration.right_cam);
     guint64 offset = GST_BUFFER_OFFSET(buf);
     guint64 timestamp_ns = src->zed.getTimestamp(sl::TIME_REFERENCE::IMAGE);
     GstZedSrcMeta *meta = gst_buffer_add_zed_src_meta(buf, info, pose, sens,

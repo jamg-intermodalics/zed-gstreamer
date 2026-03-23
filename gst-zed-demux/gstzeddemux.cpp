@@ -604,10 +604,9 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
 
             if (!GST_IS_BUFFER(data_buf)) {
                 GST_DEBUG("Data buffer not allocated");
-
                 // ----> Release incoming buffer
                 gst_buffer_unmap(buf, &map_in);
-                // gst_buffer_unref(buf);
+                gst_buffer_unref(buf); // remember to unref the incoming buffer, we are done with it (see return below)
                 //  <---- Release incoming buffer
 
                 return GST_FLOW_ERROR;
@@ -622,6 +621,9 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
                 GST_BUFFER_DTS(data_buf) = GST_BUFFER_DTS(buf);
                 GST_BUFFER_TIMESTAMP(data_buf) = GST_BUFFER_TIMESTAMP(buf);
 
+                GST_TRACE("Data buffer unmap");
+                gst_buffer_unmap(data_buf, &map_out_data); // unmap data, buffer stays valid!
+                // gst_buffer_unref(data_buf); // do not unref the data buffer, will be pushed out of this pad. This pattern can be found in gst-plugins-good
                 GST_TRACE("Data buffer push");
                 GstFlowReturn ret_data = gst_pad_push(filter->srcpad_data, data_buf);
 
@@ -631,20 +633,21 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
 
                     // ----> Release incoming buffer
                     gst_buffer_unmap(buf, &map_in);
-                    // gst_buffer_unref(buf);
-                    GST_TRACE("Data buffer unmap");
-                    gst_buffer_unmap(data_buf, &map_out_data);
+                    gst_buffer_unref(buf); // remember to also unref the incoming buffer, we are done with it (see return below)
+                    // GST_TRACE("Data buffer unmap");
+                    // gst_buffer_unmap(data_buf, &map_out_data); // do not unmap, already done before pushing.
                     // gst_buffer_unref(data_buf);
                     //  <---- Release incoming buffer
                     return ret_data;
                 }
-
-                GST_TRACE("Data buffer unmap");
-                gst_buffer_unmap(data_buf, &map_out_data);
-                // gst_buffer_unref(data_buf);
+            // outside this if, data buffer was not mapped so nothing to unmap
             } else {
                 GST_ELEMENT_ERROR(pad, RESOURCE, FAILED, ("Failed to map buffer for writing"),
                                   (NULL));
+                    // ----> Release incoming buffer
+                    gst_buffer_unmap(buf, &map_in);
+                    gst_buffer_unref(buf); // remember to also unref the incoming buffer, we are done with it (see return below)
+                    //  <---- Release incoming buffer
                 return GST_FLOW_ERROR;
             }
         }
@@ -664,7 +667,7 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
 
                 // ----> Release incoming buffer
                 gst_buffer_unmap(buf, &map_in);
-                // gst_buffer_unref(buf);
+                gst_buffer_unref(buf); // remember to unref the incoming buffer, we are done with it (see return below)
                 //  <---- Release incoming buffer
 
                 return GST_FLOW_ERROR;
@@ -678,7 +681,7 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
                     // Add metadata
                     gst_buffer_add_zed_src_meta(left_proc_buf, meta->info, meta->pose, meta->sens,
                                                 meta->od_enabled, meta->obj_count, meta->objects,
-                                                meta->frame_id, meta->timestamp_ns);
+                                                meta->frame_id, meta->cam_info, meta->timestamp_ns);
                 }
 
                 GST_TRACE("Left buffer set timestamp");
@@ -686,6 +689,9 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
                 GST_BUFFER_DTS(left_proc_buf) = GST_BUFFER_DTS(buf);
                 GST_BUFFER_TIMESTAMP(left_proc_buf) = GST_BUFFER_TIMESTAMP(buf);
 
+                GST_TRACE("Left buffer unmap");
+                gst_buffer_unmap(left_proc_buf, &map_out_left);// unmap data, buffer stays valid!
+                // gst_buffer_unref(left_proc_buf); // do not unref the buffer, will be pushed out of this pad. This pattern can be found in gst-plugins-good
                 GST_TRACE("Left buffer push");
                 ret_left = gst_pad_push(filter->srcpad_left, left_proc_buf);
 
@@ -695,20 +701,22 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
 
                     // ----> Release incoming buffer
                     gst_buffer_unmap(buf, &map_in);
-                    // gst_buffer_unref(buf);
-                    GST_TRACE("Left buffer unmap");
-                    gst_buffer_unmap(left_proc_buf, &map_out_left);
+                    gst_buffer_unref(buf); // remember to also unref the incoming buffer, we are done with it (see return below)
+                    // GST_TRACE("Left buffer unmap");
+                    // gst_buffer_unmap(left_proc_buf, &map_out_left); // do not unmap, already done before pushing.
                     // gst_buffer_unref(left_proc_buf);
                     //  <---- Release incoming buffer
                     return ret_left;
                 }
-
-                GST_TRACE("Left buffer unmap");
-                gst_buffer_unmap(left_proc_buf, &map_out_left);
-                // gst_buffer_unref(left_proc_buf);
+            // outside this if, left_proc buffer was not mapped so nothing to unmap
             } else {
                 GST_ELEMENT_ERROR(pad, RESOURCE, FAILED, ("Failed to map buffer for writing"),
                                   (NULL));
+                // ----> Release incoming buffer
+                gst_buffer_unmap(buf, &map_in);
+                gst_buffer_unref(buf); // remember to also unref the incoming buffer, we are done with it (see return below)
+                //  <---- Release incoming buffer
+
                 return GST_FLOW_ERROR;
             }
         }
@@ -727,7 +735,7 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
 
                 // ----> Release incoming buffer
                 gst_buffer_unmap(buf, &map_in);
-                // gst_buffer_unref(buf);
+                gst_buffer_unref(buf);  // remember to unref the incoming buffer, we are done with it (see return below)
                 //  <---- Release incoming buffer
 
                 return GST_FLOW_ERROR;
@@ -741,7 +749,7 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
                     // Add metadata
                     gst_buffer_add_zed_src_meta(mono_proc_buf, meta->info, meta->pose, meta->sens,
                                                 meta->od_enabled, meta->obj_count, meta->objects,
-                                                meta->frame_id, meta->timestamp_ns);
+                                                meta->frame_id, meta->cam_info, meta->timestamp_ns);
                 }
 
                 GST_TRACE("Mono buffer set timestamp");
@@ -749,6 +757,9 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
                 GST_BUFFER_DTS(mono_proc_buf) = GST_BUFFER_DTS(buf);
                 GST_BUFFER_TIMESTAMP(mono_proc_buf) = GST_BUFFER_TIMESTAMP(buf);
 
+                GST_TRACE("Mono buffer unmap");
+                gst_buffer_unmap(mono_proc_buf, &map_out_mono); // unmap data, buffer stays valid!
+                // gst_buffer_unref(mono_proc_buf); // do not unref the buffer, will be pushed out of this pad. This pattern can be found in gst-plugins-good
                 GST_TRACE("Mono buffer push");
                 ret_mono = gst_pad_push(filter->srcpad_mono, mono_proc_buf);
 
@@ -758,20 +769,23 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
 
                     // ----> Release incoming buffer
                     gst_buffer_unmap(buf, &map_in);
-                    // gst_buffer_unref(buf);
-                    GST_TRACE("Mono buffer unmap");
-                    gst_buffer_unmap(mono_proc_buf, &map_out_mono);
+                    gst_buffer_unref(buf);// remember to also unref the incoming buffer, we are done with it (see return below)
+                    // GST_TRACE("Mono buffer unmap");
+                    // gst_buffer_unmap(mono_proc_buf, &map_out_mono); // do not unmap, already done before pushing.
                     // gst_buffer_unref(mono_proc_buf);
                     //  <---- Release incoming buffer
                     return ret_mono;
                 }
 
-                GST_TRACE("Mono buffer unmap");
-                gst_buffer_unmap(mono_proc_buf, &map_out_mono);
-                // gst_buffer_unref(mono_proc_buf);
+            // outside this if, mono_proc buffer was not mapped so nothing to unmap
             } else {
                 GST_ELEMENT_ERROR(pad, RESOURCE, FAILED, ("Failed to map buffer for writing"),
                                   (NULL));
+                // ----> Release incoming buffer
+                gst_buffer_unmap(buf, &map_in);
+                gst_buffer_unref(buf);  // remember to unref the incoming buffer, we are done with it (see return below)
+                //  <---- Release incoming buffer
+
                 return GST_FLOW_ERROR;
             }
         }
@@ -793,7 +807,7 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
 
                 // ----> Release incoming buffer
                 gst_buffer_unmap(buf, &map_in);
-                // gst_buffer_unref(buf);
+                gst_buffer_unref(buf); // remember to unref the incoming buffer, we are done with it (see return below)
                 //  <---- Release incoming buffer
                 return GST_FLOW_ERROR;
             }
@@ -821,7 +835,7 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
                     // Add metadata
                     gst_buffer_add_zed_src_meta(aux_proc_buf, meta->info, meta->pose, meta->sens,
                                                 meta->od_enabled, meta->obj_count, meta->objects,
-                                                meta->frame_id, meta->timestamp_ns);
+                                                meta->frame_id, meta->cam_info, meta->timestamp_ns);
                 }
 
                 GST_TRACE("Aux buffer set timestamp");
@@ -829,8 +843,10 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
                 GST_BUFFER_DTS(aux_proc_buf) = GST_BUFFER_DTS(buf);
                 GST_BUFFER_TIMESTAMP(aux_proc_buf) = GST_BUFFER_TIMESTAMP(buf);
 
+                GST_TRACE("Aux buffer unmap");
+                gst_buffer_unmap(aux_proc_buf, &map_out_aux); // unmap data, buffer stays valid!
+                 // gst_buffer_unref(aux_proc_buf); // do not unref the buffer, will be pushed out of this pad. This pattern can be found in gst-plugins-good
                 GST_TRACE("Aux buffer push");
-
                 ret_aux = gst_pad_push(filter->srcpad_aux, aux_proc_buf);
 
                 if (ret_aux != GST_FLOW_OK) {
@@ -839,20 +855,22 @@ static GstFlowReturn gst_zeddemux_chain(GstPad *pad, GstObject *parent, GstBuffe
 
                     // ----> Release incoming buffer
                     gst_buffer_unmap(buf, &map_in);
-                    // gst_buffer_unref(buf);
-                    GST_TRACE("Aux buffer unmap");
-                    gst_buffer_unmap(aux_proc_buf, &map_out_aux);
+                    gst_buffer_unref(buf); // remember to also unref the incoming buffer, we are done with it (see return below)
+                    // GST_TRACE("Aux buffer unmap");
+                    // gst_buffer_unmap(aux_proc_buf, &map_out_aux); // do not unmap, already done before pushing.
                     // gst_buffer_unref(aux_proc_buf);
                     //  <---- Release incoming buffer
                     return ret_aux;
                 }
 
-                GST_TRACE("Aux buffer unmap");
-                gst_buffer_unmap(aux_proc_buf, &map_out_aux);
-                // gst_buffer_unref(aux_proc_buf);
+            // outside this if, aux_proc  buffer was not mapped so nothing to unmap
             } else {
                 GST_ELEMENT_ERROR(pad, RESOURCE, FAILED, ("Failed to map buffer for writing"),
                                   (NULL));
+                // ----> Release incoming buffer
+                gst_buffer_unmap(buf, &map_in);
+                gst_buffer_unref(buf);  // remember to unref the incoming buffer, we are done with it (see return below)
+                //  <---- Release incoming buffer
                 return GST_FLOW_ERROR;
             }
         }

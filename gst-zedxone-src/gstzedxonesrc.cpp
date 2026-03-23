@@ -792,9 +792,9 @@ static gboolean gst_zedxonesrc_calculate_caps(GstZedXOneSrc *src) {
 }
 
 static gboolean gst_zedxonesrc_start(GstBaseSrc *bsrc) {
-#if (ZED_SDK_MAJOR_VERSION != 4 && ZED_SDK_MINOR_VERSION != 2 && ZED_SDK_SUB_VERSION != 2)
+#if (ZED_SDK_MAJOR_VERSION != 5)
     GST_ELEMENT_ERROR(src, LIBRARY, FAILED, 
-    ("Wrong ZED SDK version. SDK v4.2.2 required "),
+    ("Wrong ZED SDK version. SDK v5.0 EA or newer required "),
                       (NULL));
 #endif
 
@@ -846,8 +846,6 @@ static gboolean gst_zedxonesrc_start(GstBaseSrc *bsrc) {
     GST_INFO(" * Camera FPS: %d", init_params.camera_fps);
     init_params.sdk_verbose = src->_sdkVerboseLevel;
     GST_INFO(" * SDK verbose level: %d", init_params.sdk_verbose);
-    init_params.open_timeout_sec = src->_camTimeout_sec;
-    GST_INFO(" * Open timeout [sec]: %g", init_params.open_timeout_sec);
     init_params.camera_image_flip = (src->_cameraImageFlip?sl::FLIP_MODE::ON:sl::FLIP_MODE::OFF);
     GST_INFO(" * Camera flipped: %s", (init_params.camera_image_flip?"TRUE":"FALSE"));
     init_params.enable_hdr = src->_enableHDR;
@@ -1252,12 +1250,49 @@ static GstFlowReturn gst_zedxonesrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     GST_BUFFER_OFFSET(buf) = temp_ugly_buf_index++;
     // <---- Timestamp meta-data
 
+    // ZED X One is single-lens, so we use the top-level calibration parameters
+    auto calibration = cam_info.camera_configuration.calibration_parameters;
+
+    ZedCamInfo camera_info;
+    camera_info.cam_left_width  = cam_info.camera_configuration.resolution.width;
+    camera_info.cam_left_height = cam_info.camera_configuration.resolution.height;
+
+    // 1. Map K Matrix (Intrinsic)
+    camera_info.cam_left_k[0] = calibration.fx; camera_info.cam_left_k[1] = 0;              camera_info.cam_left_k[2] = calibration.cx;
+    camera_info.cam_left_k[3] = 0;              camera_info.cam_left_k[4] = calibration.fy;  camera_info.cam_left_k[5] = calibration.cy;
+    camera_info.cam_left_k[6] = 0;              camera_info.cam_left_k[7] = 0;              camera_info.cam_left_k[8] = 1.0;
+
+    camera_info.cam_right_k[0] = calibration.fx; camera_info.cam_right_k[1] = 0;              camera_info.cam_right_k[2] = calibration.cx;
+    camera_info.cam_right_k[3] = 0;              camera_info.cam_right_k[4] = calibration.fy;  camera_info.cam_right_k[5] = calibration.cy;
+    camera_info.cam_right_k[6] = 0;              camera_info.cam_right_k[7] = 0;              camera_info.cam_right_k[8] = 1.0;
+
+
+
+    // 2. Map D Vector (Distortion)
+    for (int i = 0; i < 5; i++) camera_info.cam_left_d[i] = calibration.disto[i];
+    for (int i = 0; i < 5; i++) camera_info.cam_right_d[i] = calibration.disto[i];
+
+    // 3. Map R Matrix (Rectification - Identity for single lens)
+    static const float I[9] = { 1.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f };
+    for (int i = 0; i < 9; i++) camera_info.cam_left_r[i] = I[i];
+    for (int i = 0; i < 9; i++) camera_info.cam_right_r[i] = I[i];
+
+    // 4. Map P Matrix (Projection)
+    camera_info.cam_left_p[0] = calibration.fx; camera_info.cam_left_p[1] = 0;              camera_info.cam_left_p[2] = calibration.cx; camera_info.cam_left_p[3] = 0;
+    camera_info.cam_left_p[4] = 0;              camera_info.cam_left_p[5] = calibration.fy;  camera_info.cam_left_p[6] = calibration.cy; camera_info.cam_left_p[7] = 0;
+    camera_info.cam_left_p[8] = 0;              camera_info.cam_left_p[9] = 0;              camera_info.cam_left_p[10] = 1.0;           camera_info.cam_left_p[11] = 0;
+    
+    camera_info.cam_right_p[0] = calibration.fx; camera_info.cam_right_p[1] = 0;              camera_info.cam_right_p[2] = calibration.cx; camera_info.cam_right_p[3] = 0;
+    camera_info.cam_right_p[4] = 0;              camera_info.cam_right_p[5] = calibration.fy;  camera_info.cam_right_p[6] = calibration.cy; camera_info.cam_right_p[7] = 0;
+    camera_info.cam_right_p[8] = 0;              camera_info.cam_right_p[9] = 0;              camera_info.cam_right_p[10] = 1.0;           camera_info.cam_right_p[11] = 0;
+    // -----> Camera Intrinsics metadata end
+
     GST_TRACE("PUSH Buffer meta-data");
     guint64 offset = GST_BUFFER_OFFSET(buf);
     guint64 timestamp_ns = src->_zed->getTimestamp(sl::TIME_REFERENCE::IMAGE);
     GstZedSrcMeta *meta = gst_buffer_add_zed_src_meta(buf, info, pose, sens,
                                                       false,
-                                                      0, NULL, offset, timestamp_ns);
+                                                      0, NULL, offset, camera_info, timestamp_ns);
 
     // Buffer release
     GST_TRACE("Buffer release");

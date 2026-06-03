@@ -2843,7 +2843,11 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     }
 
     // ZED Mats — reuse the persistent buffers stored on the element so the
-    // SDK writes into the same backing memory every frame.
+    // SDK writes into the same backing memory every frame and avoid re-allocation
+    // Note that every retrieve* call below must succeed before the Mats are read! This will fill/reshape the Mat.
+    // These persistent buffers are NOT cleared between frames so reading them withouth a fresh retreive*
+    // will see stale data
+  
     sl::Mat& left_img = src->left_img;
     sl::Mat& right_img = src->right_img;
     sl::Mat& depth_data = src->depth_data;

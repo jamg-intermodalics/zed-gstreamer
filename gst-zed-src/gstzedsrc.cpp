@@ -2184,7 +2184,7 @@ static gboolean gst_zedsrc_calculate_caps(GstZedSrc *src) {
         format = GST_VIDEO_FORMAT_GRAY16_LE;
     }
 
-    sl::CameraInformation cam_info = src->zed.getCameraInformation();
+    const sl::CameraInformation& cam_info = src->cached_cam_info;
 
     width = cam_info.camera_configuration.resolution.width;
     height = cam_info.camera_configuration.resolution.height;
@@ -2363,6 +2363,9 @@ static gboolean gst_zedsrc_start(GstBaseSrc *bsrc) {
                           ("Failed to open camera, '%s'", sl::toString(ret).c_str()), (NULL));
         return FALSE;
     }
+    // Camera intrinsics don't change during a session; fetch them once and
+    // reuse the cached copy on every frame.
+    src->cached_cam_info = src->zed.getCameraInformation();
     // <---- Open camera
 
     // ----> Camera Controls
@@ -2839,10 +2842,15 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
         return GST_FLOW_ERROR;
     }
 
-    // ZED Mats
-    sl::Mat left_img;
-    sl::Mat right_img;
-    sl::Mat depth_data;
+    // ZED Mats — reuse the persistent buffers stored on the element so the
+    // SDK writes into the same backing memory every frame and avoid re-allocation
+    // Note that every retrieve* call below must succeed before the Mats are read! This will fill/reshape the Mat.
+    // These persistent buffers are NOT cleared between frames so reading them withouth a fresh retreive*
+    // will see stale data
+  
+    sl::Mat& left_img = src->left_img;
+    sl::Mat& right_img = src->right_img;
+    sl::Mat& depth_data = src->depth_data;
 
     // ----> Mats retrieving
     auto check_ret = [src](sl::ERROR_CODE ret) {
@@ -2908,7 +2916,7 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     // <---- Memory copy
 
     // ----> Info metadata
-    sl::CameraInformation cam_info = src->zed.getCameraInformation();
+    const sl::CameraInformation& cam_info = src->cached_cam_info;
     ZedInfo info;
     info.cam_model = (gint) cam_info.camera_model;
     info.stream_type = src->stream_type;
@@ -2952,7 +2960,7 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
 
     // ----> Sensors metadata
     ZedSensors sens;
-    if (src->zed.getCameraInformation().camera_model != sl::MODEL::ZED) {
+    if (cam_info.camera_model != sl::MODEL::ZED) {
         sens.sens_avail = TRUE;
         sens.imu.imu_avail = TRUE;
 
@@ -2966,7 +2974,7 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
         sens.imu.gyro[1] = sens_data.imu.angular_velocity.y;
         sens.imu.gyro[2] = sens_data.imu.angular_velocity.z;
 
-        if (src->zed.getCameraInformation().camera_model != sl::MODEL::ZED_M) {
+        if (cam_info.camera_model != sl::MODEL::ZED_M) {
             sens.mag.mag_avail = TRUE;
             sens.mag.mag[0] = sens_data.magnetometer.magnetic_field_calibrated.x;
             sens.mag.mag[1] = sens_data.magnetometer.magnetic_field_calibrated.y;
@@ -3284,12 +3292,9 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     // <---- Timestamp meta-data
 
     // <---- Camera Intrinsics metadata
-    // WARNING! Please note that we are fetching the calibration data at runtime for each frame,
-    // which isn't optimal, in case there is some major performance drop we should investigate it!
-    // TODO: if performance is an issue we can fetch the calibration data once at the start and store it in the src struct, since it doesn't change during runtime
     // 1. Point to the calibration data inside the ZED "Book"
     sl::MODEL model = cam_info.camera_model;
-    auto calibration = cam_info.camera_configuration.calibration_parameters;
+    const auto& calibration = cam_info.camera_configuration.calibration_parameters;
 
     // 2. Create your new struct instance
     ZedCamInfo camera_info;

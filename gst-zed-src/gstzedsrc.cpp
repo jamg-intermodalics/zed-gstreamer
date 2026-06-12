@@ -3292,9 +3292,6 @@ static GstFlowReturn gst_zedsrc_fill(GstPushSrc *psrc, GstBuffer *buf) {
     // <---- Timestamp meta-data
 
     // <---- Camera Intrinsics metadata
-    // WARNING! Please note that we are fetching the calibration data at runtime for each frame,
-    // which isn't optimal, in case there is some major performance drop we should investigate it!
-    // TODO: if performance is an issue we can fetch the calibration data once at the start and store it in the src struct, since it doesn't change during runtime
     // 1. Point to the calibration data inside the ZED "Book"
     sl::MODEL model = cam_info.camera_model;
     const auto& calibration = cam_info.camera_configuration.calibration_parameters;

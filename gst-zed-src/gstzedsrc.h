@@ -63,6 +63,7 @@ struct _GstZedSrc {
     gint depth_mode;   // Depth mode [enum]
     gboolean camera_disable_self_calib;
     gint depth_stabilization;
+    gboolean enable_image_validity_check;
     gint coord_sys;
     gboolean roi;
     gint roi_x;

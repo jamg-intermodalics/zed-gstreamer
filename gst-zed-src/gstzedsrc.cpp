@@ -74,6 +74,7 @@ enum {
     PROP_ROI_H,
     // PROP_RIGHT_DEPTH_ENABLE,
     PROP_DEPTH_STAB,
+    PROP_ENABLE_IMAGE_VALIDITY_CHECK,
     PROP_CONFIDENCE_THRESH,
     PROP_TEXTURE_CONF_THRESH,
     PROP_3D_REF_FRAME,
@@ -253,6 +254,7 @@ typedef enum {
 #define DEFAULT_PROP_COORD_SYS      static_cast<gint>(sl::COORDINATE_SYSTEM::IMAGE)
 #define DEFAULT_PROP_DIS_SELF_CALIB FALSE
 #define DEFAULT_PROP_DEPTH_STAB     1
+#define DEFAULT_PROP_ENABLE_IMAGE_VALIDITY_CHECK TRUE
 //#define DEFAULT_PROP_RIGHT_DEPTH              FALSE
 #define DEFAULT_PROP_ROI   FALSE
 #define DEFAULT_PROP_ROI_X -1
@@ -926,6 +928,13 @@ static void gst_zedsrc_class_init(GstZedSrcClass *klass) {
                          (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
+        gobject_class, PROP_ENABLE_IMAGE_VALIDITY_CHECK,
+        g_param_spec_boolean("enable-image-validity-check", "Enable Image Validity Check",
+                             "Enable Image Validity Check",
+                             DEFAULT_PROP_ENABLE_IMAGE_VALIDITY_CHECK,
+                             (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
         gobject_class, PROP_COORD_SYS,
         g_param_spec_enum("coordinate-system", "SDK Coordinate System", "3D Coordinate System",
                           GST_TYPE_ZED_COORD_SYS, DEFAULT_PROP_COORD_SYS,
@@ -1466,6 +1475,7 @@ static void gst_zedsrc_init(GstZedSrc *src) {
     src->depth_mode = DEFAULT_PROP_DEPTH_MODE;
     src->camera_disable_self_calib = DEFAULT_PROP_DIS_SELF_CALIB;
     src->depth_stabilization = DEFAULT_PROP_DEPTH_STAB;
+    src->enable_image_validity_check = DEFAULT_PROP_ENABLE_IMAGE_VALIDITY_CHECK;
     src->coord_sys = DEFAULT_PROP_COORD_SYS;
     src->confidence_threshold = DEFAULT_PROP_CONFIDENCE_THRESH;
     src->texture_confidence_threshold = DEFAULT_PROP_TEXTURE_CONF_THRESH;
@@ -1612,6 +1622,9 @@ void gst_zedsrc_set_property(GObject *object, guint property_id, const GValue *v
         break;
     case PROP_DEPTH_STAB:
         src->depth_stabilization = g_value_get_int(value);
+        break;
+    case PROP_ENABLE_IMAGE_VALIDITY_CHECK:
+        src->enable_image_validity_check = g_value_get_boolean(value);
         break;
     case PROP_COORD_SYS:
         src->coord_sys = g_value_get_enum(value);
@@ -1915,6 +1928,9 @@ void gst_zedsrc_get_property(GObject *object, guint property_id, GValue *value, 
         break;*/
     case PROP_DEPTH_STAB:
         g_value_set_int(value, src->depth_stabilization);
+        break;
+    case PROP_ENABLE_IMAGE_VALIDITY_CHECK:
+        g_value_set_boolean(value, src->enable_image_validity_check);
         break;
     case PROP_CONFIDENCE_THRESH:
         g_value_set_int(value, src->confidence_threshold);
@@ -2320,6 +2336,8 @@ static gboolean gst_zedsrc_start(GstBaseSrc *bsrc) {
     GST_INFO(" * MAX depth: %g", init_params.depth_maximum_distance);
     init_params.depth_stabilization = src->depth_stabilization;
     GST_INFO(" * Depth Stabilization: %d", init_params.depth_stabilization);
+    init_params.enable_image_validity_check = src->enable_image_validity_check;
+    GST_INFO(" * Enable Image Validity Check: %d", init_params.enable_image_validity_check);
     init_params.enable_right_side_measure = false;   // src->enable_right_side_measure==TRUE;
     init_params.camera_disable_self_calib = src->camera_disable_self_calib == TRUE;
     GST_INFO(" * Disable self calibration: %s",

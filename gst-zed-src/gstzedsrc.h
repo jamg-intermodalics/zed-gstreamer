@@ -44,6 +44,18 @@ struct _GstZedSrc {
     // ZED camera object
     sl::Camera zed;
 
+    // Cached camera information, populated once after zed.open() to avoid
+    // a per-frame call to sl::Camera::getCameraInformation() which leaks a
+    // small amount of heap inside the ZED SDK on each invocation.
+    sl::CameraInformation cached_cam_info;
+
+    // Reusable frame buffers — hoisted out of gst_zedsrc_fill() so the ZED
+    // SDK can write into the same backing storage every frame instead of
+    // allocating a fresh heap buffer per call.
+    sl::Mat left_img;
+    sl::Mat right_img;
+    sl::Mat depth_data;
+
     gboolean is_started;   // grab started flag
 
     // ----> Properties
